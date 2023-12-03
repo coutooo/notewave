@@ -1,0 +1,138 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOTEWAVE</title>
+    <link rel="stylesheet" type="text/css" href="/style.css">
+    <script src="https://kit.fontawesome.com/b1708dc911.js" crossorigin="anonymous"></script>
+
+</head>
+
+<body>
+    <div class="container">
+        <div class="music-player">
+            <nav>
+                <div class="circle">
+                    <i class="fa-solid fa-angle-left"></i>
+                </div>
+                <div class="circle">
+                    <i class="fa-solid fa-bars"></i>
+                </div>
+            </nav>
+            <img src="media/images/wave.jpg" class="song-img">
+            <h1>NOTEWAVE</h1>
+            <p>by COUTINI</p>
+
+            <audio id="song">
+                <source src="media/sounds/wowowowowowowow-103214.mp3" type="audio/mpeg">
+            </audio>
+            <input type="range" value="0" id="progress">
+
+            <!-- Volume control -->
+            <div class="volume-control">
+                <i class="fa-solid fa-volume-up"></i>
+                <input type="range" value="100" id="volume" max="100" step="1">
+            </div>
+
+            <div class="notes-section">
+                <input type="text" id="noteInput" placeholder="Add a note...">
+                <button onclick="addNote()">Add Note</button>
+            </div>
+
+            <!-- Add an empty div to display the notes -->
+            <div id="notesContainer"></div>
+
+
+            <div class="controls">
+                <div><i class="fa-solid fa-backward"></i></div>
+                <div onclick="playPause()"><i class="fa-solid fa-play" id="ctrlIcon"></i></div>
+                <div><i class="fa-solid fa-forward"></i></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let progress = document.getElementById('progress');
+        let song = document.getElementById('song');
+        let ctrlIcon = document.getElementById('ctrlIcon');
+        let volume = document.getElementById('volume');
+
+        let noteInput = document.getElementById('noteInput');
+        let notesContainer = document.getElementById('notesContainer');
+        let notes = [];
+
+        song.onloadedmetadata = function () {
+            progress.max = song.duration;
+            progress.value = song.currentTime;
+        };
+
+        volume.oninput = function () {
+            song.volume = volume.value / 100;
+        };
+
+        function playPause() {
+            if (ctrlIcon.classList.contains('fa-pause')) {
+                song.pause();
+                ctrlIcon.classList.remove('fa-pause');
+                ctrlIcon.classList.add('fa-play');
+            }
+            else {
+                song.play();
+                ctrlIcon.classList.remove('fa-play');
+                ctrlIcon.classList.add('fa-pause');
+            }
+        }
+
+        if (song.play()) {
+            setInterval(() => {
+                progress.value = song.currentTime;
+                displayNotes();
+            }, 500);
+        }
+
+        progress.onchange = function () {
+            song.play();
+            song.currentTime = progress.value;
+            ctrlIcon.classList.remove('fa-play');
+            ctrlIcon.classList.add('fa-pause');
+        }
+
+        function addNote() {
+            // Get the current timestamp and the note text
+            let timestamp = Math.floor(song.currentTime);
+            let noteText = noteInput.value;
+
+            // Add the note to the notes array
+            notes.push({ timestamp, noteText });
+
+            // Clear the input field
+            noteInput.value = '';
+
+            // Display the notes
+            displayNotes();
+            
+        }
+
+        function displayNotes() {
+            // Clear the existing notes
+            notesContainer.innerHTML = '';
+
+            // Display each note in the notesContainer
+            notes.forEach(note => {
+                if (note.timestamp == Math.floor(song.currentTime)) {
+                    let noteElement = document.createElement('div');
+                    noteElement.textContent = `@${note.timestamp}s: ${note.noteText}`;
+                    notesContainer.appendChild(noteElement);
+                }
+            });
+        }
+
+    </script>
+
+
+</body>
+
+</html>
