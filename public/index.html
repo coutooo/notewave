@@ -25,11 +25,14 @@
             <img src="media/images/wave.jpg" class="song-img">
             <h1>NOTEWAVE</h1>
             <p>by COUTINI</p>
-
+            <input type="file" id="fileInput" accept="audio/*" onchange="handleFileChange()">
             <audio id="song">
                 <source src="media/sounds/wowowowowowowow-103214.mp3" type="audio/mpeg">
             </audio>
             <input type="range" value="0" id="progress">
+            <div class="time-display">
+                <span id="currentTime">0:00</span> / <span id="totalDuration">0:00</span>
+            </div>
 
             <!-- Volume control -->
             <div class="volume-control">
@@ -43,8 +46,10 @@
             </div>
 
             <!-- Add an empty div to display the notes -->
-            <div id="notesContainer"></div>
-
+            <div class="notes-container">
+                <h2>Notes</h2>
+                <div id="notesContainer"></div>
+            </div>
 
             <div class="controls">
                 <div><i class="fa-solid fa-backward"></i></div>
@@ -60,6 +65,21 @@
         let ctrlIcon = document.getElementById('ctrlIcon');
         let volume = document.getElementById('volume');
 
+
+        let currentTimeDisplay = document.getElementById('currentTime');
+        let totalDurationDisplay = document.getElementById('totalDuration');
+
+
+        let selectedAudioFile;
+        const fileInput = document.getElementById('fileInput');
+
+        fileInput.addEventListener('change', (event) => {
+            const selectedFile = event.target.files[0];
+
+            if (selectedFile) {
+                selectedAudioFile = selectedFile.name;
+            }
+        });
         let noteInput = document.getElementById('noteInput');
         let notesContainer = document.getElementById('notesContainer');
         let notes = [];
@@ -67,68 +87,157 @@
         song.onloadedmetadata = function () {
             progress.max = song.duration;
             progress.value = song.currentTime;
+            updateDurationDisplay();
+        };
+
+        song.ontimeupdate = function () {
+            progress.value = song.currentTime;
+            updateDurationDisplay();
+            displayNotes();
         };
 
         volume.addEventListener('input', function () {
             song.volume = volume.value / 100;
         });
 
-
         function playPause() {
             if (ctrlIcon.classList.contains('fa-pause')) {
                 song.pause();
                 ctrlIcon.classList.remove('fa-pause');
                 ctrlIcon.classList.add('fa-play');
-            }
-            else {
+            } else {
                 song.play();
                 ctrlIcon.classList.remove('fa-play');
                 ctrlIcon.classList.add('fa-pause');
             }
         }
 
-        if (song.play()) {
-            setInterval(() => {
-                progress.value = song.currentTime;
-                displayNotes();
-            }, 500);
-        }
-
-        progress.onchange = function () {
-            song.play();
+        progress.oninput = function () {
             song.currentTime = progress.value;
-            ctrlIcon.classList.remove('fa-play');
-            ctrlIcon.classList.add('fa-pause');
+            displayNotes();
+        };
+
+        function updateDurationDisplay() {
+            currentTimeDisplay.textContent = formatTime(song.currentTime);
+            totalDurationDisplay.textContent = formatTime(song.duration);
         }
 
         function addNote() {
-            // Get the current timestamp and the note text
             let timestamp = Math.floor(song.currentTime);
-            let noteText = noteInput.value;
-
-            // Add the note to the notes array
-            notes.push({ timestamp, noteText });
-
-            // Clear the input field
-            noteInput.value = '';
-
-            // Display the notes
-            displayNotes();
-
+            let noteText = noteInput.value.trim();
+            console.log(selectedAudioFile);
+            if (noteText !== "") {
+                notes.push({
+                    timestamp,
+                    noteText,
+                    audioName: selectedAudioFile,
+                });
+                noteInput.value = '';
+                displayNotes();
+                updateProgressBarStyle();
+                saveNotesToLocalStorage();
+            }
         }
 
         function displayNotes() {
-            // Clear the existing notes
             notesContainer.innerHTML = '';
+            console.log(selectedAudioFile);
 
-            // Display each note in the notesContainer
             notes.forEach(note => {
-                if (note.timestamp == Math.floor(song.currentTime)) {
-                    let noteElement = document.createElement('div');
-                    noteElement.textContent = `@${note.timestamp}s: ${note.noteText}`;
-                    notesContainer.appendChild(noteElement);
+                if (
+                    note.noteText.trim() !== "" &&
+                    note.audioName === selectedAudioFile
+                ) {
+                    let noteContainer = document.createElement('div');
+                    noteContainer.classList.add('note');
+
+                    let noteElement = document.createElement('p');
+                    noteElement.textContent = formatExistingNotes([note]);
+
+                    noteContainer.appendChild(noteElement);
+                    notesContainer.appendChild(noteContainer);
                 }
             });
+
+            updateProgressBarStyle();
+        }
+
+        function formatExistingNotes(existingNotes) {
+            return existingNotes.map(
+                note => `${formatTime(note.timestamp)}: ${note.noteText}`
+            ).join('\n');
+        }
+
+        function formatTime(timestamp) {
+            const timeInSeconds = Math.floor(timestamp);
+            const minutes = Math.floor(timeInSeconds / 60);
+            const seconds = timeInSeconds % 60;
+            const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            return formattedTime;
+        }
+
+        function updateProgressBarStyle() {
+            const duration = song.duration || 1;
+            const progressStops = notes.map(note => {
+                const notePercentage = (note.timestamp / duration) * 100;
+                return `${notePercentage}% 0%`;
+            }).join(', ');
+
+            progress.style.background = `linear-gradient(to right, #f53192 ${progressStops})`;
+        }
+
+        function saveNotesToLocalStorage() {
+            localStorage.setItem('notes', JSON.stringify(notes));
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            initializeNotes();
+        });
+
+        function initializeNotes() {
+            const storedNotes = localStorage.getItem('notes');
+            const storedAudioSource = localStorage.getItem('audioSource');
+
+            if (storedNotes) {
+                notes = JSON.parse(storedNotes);
+            }
+
+            if (storedAudioSource && storedAudioSource !== selectedAudioFile) {
+                selectedAudioFile = storedAudioSource;
+                song.src = selectedAudioFile;
+                song.load();
+            }
+
+            displayNotes();
+        }
+
+        function saveAudioSourceToLocalStorage(audioSource) {
+            localStorage.setItem('audioSource', audioSource);
+        }
+
+        function handleFileChange() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+
+            if (file) {
+                const objectURL = URL.createObjectURL(file);
+                const existingNotes = notes.filter(note => note.audioName === objectURL);
+
+                if (existingNotes.length > 0) {
+                    alert(`Notes already exist for file: ${file.name}\n\n${formatExistingNotes(existingNotes)}`);
+                    fileInput.value = '';
+                } else {
+                    song.src = objectURL;
+                    const newOption = document.createElement('option');
+                    newOption.value = objectURL;
+                    newOption.textContent = file.name;
+                    newOption.selected = true;
+
+                    displayNotes();
+
+                    saveAudioSourceToLocalStorage(objectURL);
+                }
+            }
         }
 
     </script>
